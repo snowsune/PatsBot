@@ -1,16 +1,6 @@
 discord.py
 discordhealthcheck
-requests
-lxml
-pytz
-python_weather
-pyyaml
 psycopg2-binary
-pillow
-opencv-python
 sqlalchemy
 alembic
 colorlog
-faapi
-Flask>=2.0.0
-markdown2>=2.4.0 

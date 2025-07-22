@@ -11,8 +11,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-# from PatsBot.models import Base  # Uncomment and implement Base in PatsBot.models
-Base = None  # Placeholder, replace with your SQLAlchemy Base
+from models import Base  # Import Base from new models.py
 
 config = context.config
 
@@ -26,7 +25,8 @@ def get_url():
     url = os.getenv("DATABASE_URL")
     if url:
         return url
-    return f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+    # Use local SQLite for development if DATABASE_URL is not set
+    return "sqlite:///./.local.sqlite"
 
 
 def run_migrations_offline() -> None:

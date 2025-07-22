@@ -1,9 +1,28 @@
 # PatsBot
 
-PatsBot is a Discord bot template based on Fops Bot.
+Written by (Vixi)[mailto:vixi@snowsune.net] for Pats and their discord server!
 
-This project is set up with Docker, Alembic migrations, and a basic tools cog. Customize as needed for your own bot!
+## Commands
 
-# Changelog
+```md
+- Version
+  Prints revision info and where to file bugs!
+```
 
-Initial template created from Fops Bot. 
+## Development!
+
+Built and managed with docker! You can run the whole stack
+or just build and run locally with pipenv
+
+Import ENV variables
+```
+DATABASE_URL=
+DISCORD_TOKEN=
+```
+
+### Developing locally
+
+```shell
+pipenv install
+pipenv run python -m PatsBot
+```

@@ -1,6 +1,7 @@
 # PatsBot
+[![PatsBot CI](https://github.com/snowsune/PatsBot/actions/workflows/pats_bot-ci.yml/badge.svg)](https://github.com/snowsune/PatsBot/actions/workflows/pats_bot-ci.yml)
 
-Written by (Vixi)[mailto:vixi@snowsune.net] for Pats and their discord server!
+Written by [Vixi](mailto:vixi@snowsune.net) for Pats and their discord server!
 
 ## Commands
 

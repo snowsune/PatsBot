@@ -1,0 +1,13 @@
+# Ignore everything by default
+**/*
+
+# Except these:
+!Dockerfile
+!README.md
+!setup.py
+!requirements.txt
+!alembic.ini
+!bin/
+!cogs/
+!PatsBot/
+!alembic/ 

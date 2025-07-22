@@ -26,3 +26,22 @@ DISCORD_TOKEN=
 pipenv install
 pipenv run python -m PatsBot
 ```
+
+## Running with Docker
+
+You can build and run the bot in a Docker container for local testing:
+
+```sh
+# Build the Docker image
+docker build -t pats-bot . --load
+
+# Run the container (best practice, use a .env with tokens and vars)
+docker run --rm -it \
+    --env-file .env \
+    -v $(pwd)/.local.sqlite:/app/.local.sqlite \
+    pats-bot
+```
+
+- The bot will automatically run Alembic migrations on startup.
+- The `.local.sqlite` file will be created in your project root and mapped into the container for persistence.
+- You can add other environment variables as needed (e.g., `DEBUG=1`).

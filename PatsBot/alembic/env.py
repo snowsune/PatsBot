@@ -11,7 +11,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from models import Base  # Import Base from new models.py
+from PatsBot.models import Base  # Import Base from PatsBot.models
 
 config = context.config
 

@@ -321,9 +321,9 @@ class Gatekeeper(commands.Cog):
                     )
                 else:
                     dm_message = await member.send(
-                        f"🚫 **You have been removed from {guild.name}**\n"
-                        f"You failed to verify within the required timeframe.\n"
-                        f"If you believe this was an error, please contact a server administrator."
+                        "🚫 **You have been removed from {guild.name}**\n"
+                        "You failed to enter server application within the required time frame\n"
+                        "You can rejoin the server here: https://discord.gg/azorewrath"
                     )
                     dm_message_id = str(dm_message.id)
 

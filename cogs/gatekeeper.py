@@ -18,6 +18,9 @@ from utilities.removal_workflow import RemovalWorkflow
 REQUIRED_ROLE = os.environ.get("REQUIRED_ROLE", "Verified")
 GRACE_PERIOD = timedelta(days=3)
 
+# Dry run mode - set to True to prevent actual DMs and kicks
+DRY_RUN_MODE = os.environ.get("DRY_RUN_MODE", "false").lower() == "true"
+
 # Use the same DB URL logic as Alembic
 DATABASE_URL = os.getenv("DATABASE_URL") or "sqlite:///./.local.sqlite"
 engine = create_engine(DATABASE_URL, future=True)
@@ -28,7 +31,11 @@ class Gatekeeper(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.logger = logging.getLogger(__name__)
-        self.removal_check_loop.start()
+
+        if DRY_RUN_MODE:
+            self.logger.warning(
+                "🚨 DRY RUN MODE ENABLED - No actual DMs or kicks will be sent!"
+            )
 
     def get_gatekeeper_enabled(self, guild_id: int) -> bool:
         """Check if gatekeeper is enabled for a guild."""
@@ -47,7 +54,7 @@ class Gatekeeper(commands.Cog):
         self.logger.info(f"Syncing members from guild: {guild.name}")
         new_users = 0
         async for member in guild.fetch_members(limit=None):
-            if self.sync_member(member):
+            if self.sync_member(member, initial_sync=True):
                 new_users += 1
         self.logger.info(f"Synced {new_users} new users from {guild.name}")
         return new_users
@@ -152,12 +159,16 @@ class Gatekeeper(commands.Cog):
             f"Sync complete. {total_new_users} total new users from enabled guilds."
         )
 
+        # Start the removal check loop after bot is ready
+        self.removal_check_loop.start()
+        self.logger.info("Started removal check loop")
+
     @commands.Cog.listener()
     async def on_member_join(self, member):
         self.logger.info(f"New member joined: {member.id}")
-        self.sync_member(member)
+        self.sync_member(member, initial_sync=False)
 
-    def sync_member(self, member) -> bool:
+    def sync_member(self, member, initial_sync=False) -> bool:
         """Sync a member to the database. Returns True if new user, False if existing user."""
         # Skip bots and admins
         if member.bot or member.guild_permissions.administrator:
@@ -170,7 +181,11 @@ class Gatekeeper(commands.Cog):
                 user = TrackedUser(
                     user_id=str(member.id),
                     guild_id=str(member.guild.id),
-                    joined_at=member.joined_at or datetime.utcnow(),
+                    joined_at=(
+                        datetime.utcnow()
+                        if initial_sync
+                        else (member.joined_at or datetime.utcnow())
+                    ),
                     roles=",".join(
                         [role.name for role in member.roles if role.name != "@everyone"]
                     ),
@@ -194,34 +209,44 @@ class Gatekeeper(commands.Cog):
     async def send_first_warning(self, guild, user, admin_channel):
         """Send the first warning to a user and post to admin channel."""
         try:
-            # Send DM to user
+            # Send DM to user (or simulate in dry run)
             member = guild.get_member(int(user.user_id))
             if member:
-                dm_message = await member.send(
-                    f"You have been marked for removal from **{guild.name}** because you haven't verified.\n"
-                    f"You have **7 days** to get the required role or you will be removed from the server.\n"
-                    f"Please contact a server administrator if you need help."
-                )
+                if DRY_RUN_MODE:
+                    dm_message_id = f"DRY_RUN_{datetime.utcnow().timestamp()}"
+                    self.logger.info(
+                        f"[DRY RUN] Would send first warning DM to {user.user_id}"
+                    )
+                else:
+                    dm_message = await member.send(
+                        f"You have been marked for removal from **{guild.name}** because you haven't verified.\n"
+                        f"You have **7 days** to get the required role or you will be removed from the server.\n"
+                        f"Please contact a server administrator if you need help."
+                    )
+                    dm_message_id = str(dm_message.id)
 
                 # Post to admin channel
+                dry_run_prefix = "[DRY RUN] " if DRY_RUN_MODE else ""
                 admin_message = await admin_channel.send(
-                    f"⚠️ **First Warning Sent**\n"
+                    f"{dry_run_prefix}⚠️ **First Warning Sent**\n"
                     f"User: <@{user.user_id}>\n"
                     f"Reason: Not verified after grace period\n"
                     f"Removal date: <t:{int(user.removal_date.timestamp())}:F>\n"
-                    f"DM Message ID: {dm_message.id}"
+                    f"DM Message ID: {dm_message_id}"
                 )
 
                 # Update database
                 session = Session()
                 try:
                     RemovalWorkflow.mark_first_warning_sent(
-                        session, user.user_id, dm_message.id
+                        session, user.user_id, dm_message_id
                     )
                 finally:
                     session.close()
 
-                self.logger.info(f"Sent first warning to user {user.user_id}")
+                self.logger.info(
+                    f"{'[DRY RUN] ' if DRY_RUN_MODE else ''}Sent first warning to user {user.user_id}"
+                )
 
         except Exception as e:
             self.logger.error(f"Failed to send first warning to {user.user_id}: {e}")
@@ -235,33 +260,43 @@ class Gatekeeper(commands.Cog):
     async def send_final_notice(self, guild, user, admin_channel):
         """Send the final notice to a user and post to admin channel."""
         try:
-            # Send DM to user
+            # Send DM to user (or simulate in dry run)
             member = guild.get_member(int(user.user_id))
             if member:
-                dm_message = await member.send(
-                    f"⚠️ **FINAL WARNING**\n"
-                    f"You have **2 days** remaining to verify in **{guild.name}** or you will be removed.\n"
-                    f"This is your final notice. Please contact a server administrator immediately if you need help."
-                )
+                if DRY_RUN_MODE:
+                    dm_message_id = f"DRY_RUN_{datetime.utcnow().timestamp()}"
+                    self.logger.info(
+                        f"[DRY RUN] Would send final notice DM to {user.user_id}"
+                    )
+                else:
+                    dm_message = await member.send(
+                        f"⚠️ **FINAL WARNING**\n"
+                        f"You have **2 days** remaining to verify in **{guild.name}** or you will be removed.\n"
+                        f"This is your final notice. Please contact a server administrator immediately if you need help."
+                    )
+                    dm_message_id = str(dm_message.id)
 
                 # Post to admin channel
+                dry_run_prefix = "[DRY RUN] " if DRY_RUN_MODE else ""
                 admin_message = await admin_channel.send(
-                    f"🚨 **Final Notice Sent**\n"
+                    f"{dry_run_prefix}🚨 **Final Notice Sent**\n"
                     f"User: <@{user.user_id}>\n"
                     f"Removal date: <t:{int(user.removal_date.timestamp())}:F>\n"
-                    f"DM Message ID: {dm_message.id}"
+                    f"DM Message ID: {dm_message_id}"
                 )
 
                 # Update database
                 session = Session()
                 try:
                     RemovalWorkflow.mark_final_notice_sent(
-                        session, user.user_id, dm_message.id
+                        session, user.user_id, dm_message_id
                     )
                 finally:
                     session.close()
 
-                self.logger.info(f"Sent final notice to user {user.user_id}")
+                self.logger.info(
+                    f"{'[DRY RUN] ' if DRY_RUN_MODE else ''}Sent final notice to user {user.user_id}"
+                )
 
         except Exception as e:
             self.logger.error(f"Failed to send final notice to {user.user_id}: {e}")
@@ -275,37 +310,47 @@ class Gatekeeper(commands.Cog):
     async def remove_user(self, guild, user, admin_channel):
         """Remove a user from the guild and post to admin channel."""
         try:
-            # Send final DM
+            # Send final DM (or simulate in dry run)
             member = guild.get_member(int(user.user_id))
             if member:
-                dm_message = await member.send(
-                    f"🚫 **You have been removed from {guild.name}**\n"
-                    f"You failed to verify within the required timeframe.\n"
-                    f"If you believe this was an error, please contact a server administrator."
-                )
+                if DRY_RUN_MODE:
+                    dm_message_id = f"DRY_RUN_{datetime.utcnow().timestamp()}"
+                    self.logger.info(
+                        f"[DRY RUN] Would send removal DM and kick user {user.user_id}"
+                    )
+                else:
+                    dm_message = await member.send(
+                        f"🚫 **You have been removed from {guild.name}**\n"
+                        f"You failed to verify within the required timeframe.\n"
+                        f"If you believe this was an error, please contact a server administrator."
+                    )
+                    dm_message_id = str(dm_message.id)
 
-                # Kick the user
-                await member.kick(reason="Not verified after removal period")
+                    # Kick the user
+                    await member.kick(reason="Not verified after removal period")
 
                 # Post to admin channel
+                dry_run_prefix = "[DRY RUN] " if DRY_RUN_MODE else ""
                 admin_message = await admin_channel.send(
-                    f"🚫 **User Removed**\n"
+                    f"{dry_run_prefix}🚫 **User Removed**\n"
                     f"User: <@{user.user_id}>\n"
                     f"Reason: Not verified after removal period\n"
                     f"Removal time: <t:{int(datetime.utcnow().timestamp())}:F>\n"
-                    f"DM Message ID: {dm_message.id}"
+                    f"DM Message ID: {dm_message_id}"
                 )
 
                 # Update database
                 session = Session()
                 try:
                     RemovalWorkflow.mark_user_removed(
-                        session, user.user_id, dm_message.id
+                        session, user.user_id, dm_message_id
                     )
                 finally:
                     session.close()
 
-                self.logger.info(f"Removed user {user.user_id}")
+                self.logger.info(
+                    f"{'[DRY RUN] ' if DRY_RUN_MODE else ''}Removed user {user.user_id}"
+                )
 
         except Exception as e:
             self.logger.error(f"Failed to remove user {user.user_id}: {e}")
@@ -316,25 +361,37 @@ class Gatekeeper(commands.Cog):
                 f"Error: {str(e)}"
             )
 
-    @tasks.loop(minutes=5)  # Check every 5 minutes
+    @tasks.loop(seconds=30)  # Check every 30 seconds
     async def removal_check_loop(self):
         """Main loop that checks for users needing removal actions."""
+        self.logger.info("🔄 Removal check loop running...")
+        self.logger.info(f"Found {len(self.bot.guilds)} guilds to check")
         session = Session()
         try:
             for guild in self.bot.guilds:
+                self.logger.info(f"Checking guild: {guild.name} ({guild.id})")
                 # Check if gatekeeper is enabled for this guild
                 if not self.get_gatekeeper_enabled(guild.id):
+                    self.logger.info(f"Gatekeeper not enabled for {guild.name}")
                     continue
 
                 # Check if admin channel and required role are configured
                 admin_channel_id = self.get_admin_channel(guild.id)
                 required_role_name = self.get_required_role(guild.id)
 
+                self.logger.info(
+                    f"Admin channel: {admin_channel_id}, Required role: {required_role_name}"
+                )
+
                 if not admin_channel_id or not required_role_name:
+                    self.logger.info(f"Missing configuration for {guild.name}")
                     continue
 
                 admin_channel = guild.get_channel(admin_channel_id)
                 if not admin_channel:
+                    self.logger.info(
+                        f"Admin channel {admin_channel_id} not found in {guild.name}"
+                    )
                     continue
 
                 guild_id_str = str(guild.id)
@@ -399,18 +456,24 @@ class Gatekeeper(commands.Cog):
                         )
 
                         # Post initial warning to admin channel
+                        dry_run_prefix = "[DRY RUN] " if DRY_RUN_MODE else ""
                         await admin_channel.send(
-                            f"⚠️ **User Marked for Removal**\n"
+                            f"{dry_run_prefix}⚠️ **User Marked for Removal**\n"
                             f"User: <@{user.user_id}>\n"
                             f"Reason: Not verified after grace period\n"
                             f"Grace period exceeded by: {(now - joined - GRACE_PERIOD).days} days\n"
                             f"First warning will be sent automatically."
                         )
 
-                        self.logger.info(f"Marked user {user.user_id} for removal")
+                        self.logger.info(
+                            f"{'[DRY RUN] ' if DRY_RUN_MODE else ''}Marked user {user.user_id} for removal"
+                        )
 
         except Exception as e:
             self.logger.error(f"Error in removal check loop: {e}")
+            import traceback
+
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
         finally:
             session.close()
 

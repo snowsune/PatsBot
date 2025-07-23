@@ -31,6 +31,7 @@ COPY setup.py ./
 COPY alembic.ini ./
 COPY bin ./bin
 COPY cogs ./cogs
+COPY utilities ./utilities
 
 # Copy the PatsBot package
 COPY PatsBot ./PatsBot

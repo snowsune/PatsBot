@@ -178,14 +178,16 @@ class Gatekeeper(commands.Cog):
         try:
             user = session.get(TrackedUser, str(member.id))
             if not user:
+                if initial_sync:
+                    # This is to make them imedietly at risk of removal if we're cathing up.
+                    joined_at = datetime.utcnow() - timedelta(days=3)
+                else:
+                    # Normal members get a 3 day
+                    joined_at = member.joined_at or datetime.utcnow()
                 user = TrackedUser(
                     user_id=str(member.id),
                     guild_id=str(member.guild.id),
-                    joined_at=(
-                        datetime.utcnow()
-                        if initial_sync
-                        else (member.joined_at or datetime.utcnow())
-                    ),
+                    joined_at=joined_at,
                     roles=",".join(
                         [role.name for role in member.roles if role.name != "@everyone"]
                     ),
@@ -396,6 +398,30 @@ class Gatekeeper(commands.Cog):
 
                 guild_id_str = str(guild.id)
                 now = datetime.utcnow()
+
+                # --- NEW LOGIC: Clear users who now have the required role ---
+                for user in (
+                    session.query(TrackedUser)
+                    .filter(
+                        TrackedUser.guild_id == guild_id_str,
+                        TrackedUser.removal_status != RemovalStatus.ACTIVE,
+                    )
+                    .all()
+                ):
+                    member = guild.get_member(int(user.user_id))
+                    if not member:
+                        continue
+                    has_role = any(r.name == required_role_name for r in member.roles)
+                    if has_role:
+                        RemovalWorkflow.reset_user_status(session, user.user_id)
+                        self.logger.info(
+                            f"User {user.user_id} was cleared by getting the required role."
+                        )
+                        await admin_channel.send(
+                            f"✅ **User Cleared**\n"
+                            f"User: <@{user.user_id}>\n"
+                            f"Reason: Gained the required role `{required_role_name}` in time."
+                        )
 
                 # Check for users who need first warnings
                 users_needing_first_warning = (

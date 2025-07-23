@@ -14,6 +14,7 @@ from utilities.guild_settings import (
     ensure_guild_exists,
 )
 from utilities.removal_workflow import RemovalWorkflow
+import random
 
 REQUIRED_ROLE = os.environ.get("REQUIRED_ROLE", "Verified")
 GRACE_PERIOD = timedelta(days=3)
@@ -182,8 +183,9 @@ class Gatekeeper(commands.Cog):
             user = session.get(TrackedUser, str(member.id))
             if not user:
                 if initial_sync:
-                    # This is to make them imedietly at risk of removal if we're cathing up.
-                    joined_at = datetime.utcnow() - timedelta(days=3)
+                    # Dither: random time between now and 3 days ago
+                    dither_days = random.uniform(0, 3)
+                    joined_at = datetime.utcnow() - timedelta(days=dither_days)
                 else:
                     # Normal members get a 3 day
                     joined_at = member.joined_at or datetime.utcnow()

@@ -40,6 +40,7 @@ class PatsBot:
 
         intents = discord.Intents.default()
         intents.message_content = True  # Required for command processing
+        intents.members = True  # Required for member join/listen
         # Enable privileged intents only if needed in the future
         # intents.guilds = True
         # intents.guild_messages = True

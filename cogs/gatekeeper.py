@@ -272,9 +272,8 @@ class Gatekeeper(commands.Cog):
                     )
                 else:
                     dm_message = await member.send(
-                        f"⚠️ **FINAL WARNING**\n"
-                        f"You have **2 days** remaining to verify in **{guild.name}** or you will be removed.\n"
-                        f"This is your final notice. Please contact a server administrator immediately if you need help."
+                        "⚠️ Reminder: its been 5 Days, please go through server entry process in "
+                        "https://discord.com/channels/945386790402023554/1136377876942442568 within the next 2 days or you'll be kicked from the server!"
                     )
                     dm_message_id = str(dm_message.id)
 

@@ -56,6 +56,9 @@ class Gatekeeper(commands.Cog):
         async for member in guild.fetch_members(limit=None):
             if self.sync_member(member, initial_sync=True):
                 new_users += 1
+
+            # Sometimes we process so many users that we hit the rate limit.
+            await asyncio.sleep(0.1)  # Small delay to avoid blocking event loop
         self.logger.info(f"Synced {new_users} new users from {guild.name}")
         return new_users
 
@@ -221,7 +224,7 @@ class Gatekeeper(commands.Cog):
                     )
                 else:
                     dm_message = await member.send(
-                        f"You have been marked for removal from **{guild.name}** because you haven't verified.\n"
+                        f"You have been marked for removal from **{guild.name}** because you haven't placed a server entry application.\n"
                         f"You have **7 days** to get the required role or you will be removed from the server.\n"
                         f"Please contact a server administrator if you need help."
                     )

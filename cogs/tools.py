@@ -26,9 +26,9 @@ class ToolCog(commands.Cog, name="ToolsCog"):
     @tasks.loop(minutes=1)
     async def update_status(self):
         statuses = [
-            f"Bot is online!",
-            f"Connected to {len(self.bot.guilds)} guilds",
-            f"Commands run today: {self.command_counter}",
+            f"Hello world~",
+            f"Running version {version}",
+            "Did you know? I'm a bot!",
         ]
         new_status = random.choice(statuses)
         await self.bot.change_presence(activity=discord.Game(name=new_status))

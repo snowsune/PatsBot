@@ -363,35 +363,35 @@ class Gatekeeper(commands.Cog):
                 f"Error: {str(e)}"
             )
 
-    @tasks.loop(seconds=30)  # Check every 30 seconds
+    @tasks.loop(minutes=5)  # Check every 5 minutes
     async def removal_check_loop(self):
         """Main loop that checks for users needing removal actions."""
-        self.logger.info("🔄 Removal check loop running...")
-        self.logger.info(f"Found {len(self.bot.guilds)} guilds to check")
+        self.logger.debug("🔄 Removal check loop running...")
+        self.logger.debug(f"Found {len(self.bot.guilds)} guilds to check")
         session = Session()
         try:
             for guild in self.bot.guilds:
-                self.logger.info(f"Checking guild: {guild.name} ({guild.id})")
+                self.logger.debug(f"Checking guild: {guild.name} ({guild.id})")
                 # Check if gatekeeper is enabled for this guild
                 if not self.get_gatekeeper_enabled(guild.id):
-                    self.logger.info(f"Gatekeeper not enabled for {guild.name}")
+                    self.logger.debug(f"Gatekeeper not enabled for {guild.name}")
                     continue
 
                 # Check if admin channel and required role are configured
                 admin_channel_id = self.get_admin_channel(guild.id)
                 required_role_name = self.get_required_role(guild.id)
 
-                self.logger.info(
+                self.logger.debug(
                     f"Admin channel: {admin_channel_id}, Required role: {required_role_name}"
                 )
 
                 if not admin_channel_id or not required_role_name:
-                    self.logger.info(f"Missing configuration for {guild.name}")
+                    self.logger.debug(f"Missing configuration for {guild.name}")
                     continue
 
                 admin_channel = guild.get_channel(admin_channel_id)
                 if not admin_channel:
-                    self.logger.info(
+                    self.logger.debug(
                         f"Admin channel {admin_channel_id} not found in {guild.name}"
                     )
                     continue

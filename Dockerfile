@@ -43,7 +43,7 @@ ENV PATH=$PATH:/app/bin
 RUN pip install -e /app
 
 # The `|| exit 1` isn't required but it's good practice anyway.
-HEALTHCHECK CMD alembic current || exit 1
+HEALTHCHECK CMD discordhealthcheck || exit 1
 
 # Run the entrypoint bin
 ENTRYPOINT ["entrypoint"] 

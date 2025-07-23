@@ -5,6 +5,7 @@ import colorlog
 import discord
 from discord.ext import commands
 import asyncio
+import discordhealthcheck
 
 
 class PatsBot:
@@ -52,6 +53,7 @@ class PatsBot:
         self.bot = commands.Bot(command_prefix=commands.when_mentioned, intents=intents)
         self.bot.remove_command("help")
         self.version = str(os.environ.get("GIT_COMMIT", "dev"))
+        self.healthcheck_server = None
 
     async def load_cogs(self):
         logging.info("Loading cogs...")
@@ -68,12 +70,21 @@ class PatsBot:
                     logging.error(f"Failed to load cog {cog_name}: {e}")
         logging.info("Done loading cogs")
 
+    async def prep_monitoring(self):
+        # Start health monitoring
+        logging.info(
+            "Preparing external monitoring (using discordhealthcheck https://pypi.org/project/discordhealthcheck/)"
+        )
+        self.healthcheck_server = await discordhealthcheck.start(self.bot)
+        logging.info("Done prepping external monitoring")
+
     def run(self):
         async def runner():
             await self.load_cogs()
 
             @self.bot.event
             async def on_ready():
+                await self.prep_monitoring()
                 guild_id = os.environ.get("GUILD_ID")
                 if guild_id:
                     try:

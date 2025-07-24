@@ -215,6 +215,12 @@ class Gatekeeper(commands.Cog):
 
     async def send_first_warning(self, guild, user, admin_channel):
         """Send the first warning to a user and post to admin channel."""
+
+        # TODO: Make this not just hardcoded
+        ENTRY_CHANNEL_LINK = (
+            "https://discord.com/channels/945386790402023554/1136377876942442568"
+        )
+
         try:
             # Send DM to user (or simulate in dry run)
             member = guild.get_member(int(user.user_id))
@@ -226,8 +232,9 @@ class Gatekeeper(commands.Cog):
                     )
                 else:
                     dm_message = await member.send(
-                        f"You have been marked for removal from **{guild.name}** because you haven't placed a server entry application.\n"
+                        f"You have been marked for removal from **{guild.name}** because you haven't verified.\n"
                         f"You have **7 days** to get the required role or you will be removed from the server.\n"
+                        f"Please submit your entry application here: {ENTRY_CHANNEL_LINK}\n"
                         f"Please contact a server administrator if you need help."
                     )
                     dm_message_id = str(dm_message.id)

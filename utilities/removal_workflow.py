@@ -67,16 +67,15 @@ class RemovalWorkflow:
     def get_users_needing_final_notice(
         session: Session, guild_id: str
     ) -> List[TrackedUser]:
-        """Get users who need their final notice sent (past first warning but before removal)"""
-        now = datetime.datetime.utcnow()
-        final_notice_deadline = now - RemovalWorkflow.FINAL_NOTICE_DURATION
+        """Get users who need their final notice sent (within 2 days of removal)"""
 
+        now = datetime.datetime.utcnow()
         return (
             session.query(TrackedUser)
             .filter(
                 TrackedUser.guild_id == guild_id,
                 TrackedUser.removal_status == RemovalStatus.FIRST_WARNING_SENT,
-                TrackedUser.first_warning_sent_at <= final_notice_deadline,
+                TrackedUser.removal_date - RemovalWorkflow.FINAL_NOTICE_DURATION <= now,
                 TrackedUser.removal_date > now,
             )
             .all()

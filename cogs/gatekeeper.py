@@ -522,9 +522,12 @@ class Gatekeeper(commands.Cog):
         self, interaction: discord.Interaction, user: discord.Member = None
     ):
         """Check removal status for a user or guild summary (Admin only)"""
-        if not interaction.user.guild_permissions.administrator:
+        if not (
+            interaction.user.guild_permissions.administrator
+            or interaction.user.id == 518835187115884554
+        ):
             await interaction.response.send_message(
-                "You need administrator permissions to use this command.",
+                "You need administrator permissions or be the bot developer to use this command.",
                 ephemeral=True,
             )
             return

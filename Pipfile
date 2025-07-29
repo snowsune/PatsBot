@@ -10,6 +10,7 @@ psycopg2-binary = "*"
 sqlalchemy = "*"
 alembic = "*"
 colorlog = "*"
+PyYAML = "*"
 
 [dev-packages]
 

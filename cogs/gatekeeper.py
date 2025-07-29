@@ -524,7 +524,7 @@ class Gatekeeper(commands.Cog):
         """Check removal status for a user or guild summary (Admin only)"""
         if not (
             interaction.user.guild_permissions.administrator
-            or interaction.user.id == 518835187115884554
+            or interaction.user.id == 185206201011798016
         ):
             await interaction.response.send_message(
                 "You need administrator permissions or be the bot developer to use this command.",

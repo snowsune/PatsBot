@@ -19,7 +19,7 @@ WORKDIR ${HOME}
 ENV PYTHONPATH=/app
 
 # Add any packages we need
-RUN apt update && apt install -y python3-dev curl libgl1-mesa-glx libglib2.0-0 libsm6 libxext6 libxrender-dev
+RUN apt update && apt install -y python3-dev curl
 
 # Install requirements
 COPY requirements.txt ./

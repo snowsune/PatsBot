@@ -45,6 +45,7 @@ class RemovalWorkflow:
             user.first_warning_message_id = None
             user.final_notice_message_id = None
             user.removal_message_id = None
+            user.bot_retries = 0
 
         session.commit()
         return user
@@ -110,6 +111,7 @@ class RemovalWorkflow:
             user.removal_status = RemovalStatus.FIRST_WARNING_SENT
             user.first_warning_sent_at = datetime.datetime.utcnow()
             user.first_warning_message_id = message_id
+            user.bot_retries = 0  # Reset retry count on successful send
             session.commit()
 
     @staticmethod
@@ -145,7 +147,18 @@ class RemovalWorkflow:
             user.first_warning_message_id = None
             user.final_notice_message_id = None
             user.removal_message_id = None
+            user.bot_retries = 0
             session.commit()
+
+    @staticmethod
+    def increment_bot_retries(session: Session, user_id: str) -> int:
+        """Increment the bot_retries counter for a user. Returns the new count."""
+        user = session.query(TrackedUser).filter_by(user_id=user_id).first()
+        if user:
+            user.bot_retries = (user.bot_retries or 0) + 1
+            session.commit()
+            return user.bot_retries
+        return 0
 
     @staticmethod
     def get_user_status(session: Session, user_id: str) -> Optional[TrackedUser]:

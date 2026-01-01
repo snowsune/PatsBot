@@ -262,6 +262,72 @@ class Gatekeeper(commands.Cog):
                     f"{'[DRY RUN] ' if DRY_RUN_MODE else ''}Sent first warning to user {user.user_id}"
                 )
 
+        except discord.Forbidden as e:
+            # Pats asked for this, specific error code 50007 for when a user
+            # has dissallowed bots to send messages to them
+            if e.code == 50007:
+                self.logger.error(
+                    f"Failed to send first warning to {user.user_id}: {e} (code: {e.code})"
+                )
+
+                # Get member object for potential kick
+                member = guild.get_member(int(user.user_id))
+
+                # Increment bot_retries in database
+                session = Session()
+                try:
+                    retry_count = RemovalWorkflow.increment_bot_retries(
+                        session, user.user_id
+                    )
+                    self.logger.info(
+                        f"Bot retries for user {user.user_id}: {retry_count}/3"
+                    )
+
+                    if retry_count >= 3:
+                        # After 3 retries, kick the user
+                        if member:
+                            if DRY_RUN_MODE:
+                                self.logger.info(
+                                    f"[DRY RUN] Would kick user {user.user_id} for not having send_messages enabled"
+                                )
+                            else:
+                                await member.kick(
+                                    reason="User has send_messages disabled for bot (3 retries failed)"
+                                )
+
+                        # Mark user as removed in database
+                        RemovalWorkflow.mark_user_removed(session, user.user_id, None)
+
+                        # Ping the specified user and post to admin channel
+                        await admin_channel.send(
+                            f"❌ **User Kicked - Cannot Send Messages**\n"
+                            f"User: <@{user.user_id}>\n"
+                            f"Reason: User has send_messages disabled for bot (failed {retry_count} times)\n"
+                            f"<@1397634241034063872>"
+                        )
+                        self.logger.info(
+                            f"Kicked user {user.user_id} after {retry_count} failed DM attempts"
+                        )
+                    else:
+                        # Still post to admin channel about the failure (but don't kick yet)
+                        await admin_channel.send(
+                            f"❌ **Failed to send first warning**\n"
+                            f"User: <@{user.user_id}>\n"
+                            f"Error: {str(e)}\n"
+                            f"Retry count: {retry_count}/3"
+                        )
+                finally:
+                    session.close()
+            else:
+                # Other Forbidden errors - just log and post
+                self.logger.error(
+                    f"Failed to send first warning to {user.user_id}: {e}"
+                )
+                await admin_channel.send(
+                    f"❌ **Failed to send first warning**\n"
+                    f"User: <@{user.user_id}>\n"
+                    f"Error: {str(e)}"
+                )
         except Exception as e:
             self.logger.error(f"Failed to send first warning to {user.user_id}: {e}")
             # Still post to admin channel about the failure

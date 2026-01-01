@@ -60,6 +60,11 @@ class TrackedUser(Base):
         String, nullable=True
     )  # Discord message ID of removal notification
 
+    # Bot retry tracking
+    bot_retries = Column(
+        Integer, nullable=False, default=0
+    )  # Error code 50007 is when a user has dissallowed bots to send messages to them
+
 
 class KeyValue(Base):
     __tablename__ = "key_value_store"

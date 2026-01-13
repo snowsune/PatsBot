@@ -167,6 +167,10 @@ class Gatekeeper(commands.Cog):
         self.removal_check_loop.start()
         self.logger.info("Started removal check loop")
 
+        # Start the cleanup loop
+        self.cleanup_loop.start()
+        self.logger.info("Started cleanup loop")
+
     @commands.Cog.listener()
     async def on_member_join(self, member):
         self.logger.info(f"New member joined: {member.id}")
@@ -205,7 +209,13 @@ class Gatekeeper(commands.Cog):
                 # Update existing user's guild_id if needed
                 if user.guild_id != str(member.guild.id):
                     user.guild_id = str(member.guild.id)
-                    session.commit()
+
+                # Clear removed_at if they were marked as left (they rejoined)
+                if user.removed_at is not None:
+                    user.removed_at = None
+                    self.logger.info(f"User {member.id} rejoined, cleared removed_at")
+
+                session.commit()
                 return False  # Existing user
         except Exception as e:
             self.logger.error(f"Error syncing member {member.id}: {e}")
@@ -574,6 +584,50 @@ class Gatekeeper(commands.Cog):
 
         except Exception as e:
             self.logger.error(f"Error in removal check loop: {e}")
+            import traceback
+
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
+        finally:
+            session.close()
+
+    @tasks.loop(hours=24)  # Run once per day
+    async def cleanup_loop(self):
+        """Clean up users who left the server more than 7 days ago"""
+        self.logger.debug("🔄 Cleanup loop running...")
+
+        session = Session()
+        try:
+            now = datetime.utcnow()
+            cleanup_threshold = now - timedelta(days=7)
+
+            # Find users who left more than 7 days ago
+            users_to_cleanup = (
+                session.query(TrackedUser)
+                .filter(TrackedUser.removed_at.isnot(None))
+                .filter(TrackedUser.removed_at <= cleanup_threshold)
+                .all()
+            )
+
+            if users_to_cleanup:
+                self.logger.info(
+                    f"Cleaning up {len(users_to_cleanup)} users who left the server"
+                )
+
+                for user in users_to_cleanup:
+                    session.delete(user)
+                    self.logger.debug(
+                        f"Cleaned up user {user.user_id} (left on {user.removed_at})"
+                    )
+
+                session.commit()
+                self.logger.info(
+                    f"Successfully cleaned up {len(users_to_cleanup)} users"
+                )
+            else:
+                self.logger.debug("No users to clean up")
+
+        except Exception as e:
+            self.logger.error(f"Error in cleanup loop: {e}")
             import traceback
 
             self.logger.error(f"Traceback: {traceback.format_exc()}")
